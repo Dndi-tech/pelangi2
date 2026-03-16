@@ -1,0 +1,125 @@
+import { Product } from "@/types/product";
+
+export const products: Product[] = [
+  // ─── MALE (4) ───────────────────────────────────────────
+  {
+    id: 1,
+    name: "Kemeja Batik Kawung Lengan Panjang",
+    category: "male",
+    brand: "Batik Nusantara",
+    price: 230000,
+    sizes: ["M", "L", "XL", "XXL"],
+    badge: "popular",
+    image: "/images/male-batik-kawung.jpg",
+  },
+  {
+    id: 2,
+    name: "Kaos Polos Cotton Combed 30s Pria",
+    category: "male",
+    price: 75000,
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    badge: "new",
+    image: "/images/male-kaos-polos.jpg",
+  },
+  {
+    id: 3,
+    name: "Kemeja Formal Slim Fit Lengan Panjang",
+    category: "male",
+    brand: "FormaLook",
+    price: 195000,
+    sizes: ["S", "M", "L", "XL"],
+    image: "/images/male-kemeja-formal.jpg",
+  },
+  {
+    id: 4,
+    name: "Celana Chino Pria Stretch",
+    category: "male",
+    brand: "UrbanWear",
+    price: 210000,
+
+    sizes: ["30", "32", "34", "36", "38"],
+    badge: "sale",
+    image: "/images/male-chino.jpg",
+  },
+
+  // ─── FEMALE (4) ─────────────────────────────────────────
+  {
+    id: 5,
+    name: "Dress Midi Batik Motif Parang",
+    category: "female",
+    brand: "Batik Nusantara",
+    price: 275000,
+    sizes: ["S", "M", "L", "XL"],
+    badge: "popular",
+    image: "/images/female-dress-batik.jpg",
+  },
+  {
+    id: 6,
+    name: "Blouse Katun Lengan Puff",
+    category: "female",
+    brand: "LemariKita",
+    price: 145000,
+    sizes: ["XS", "S", "M", "L"],
+    badge: "new",
+    image: "/images/female-blouse-puff.jpg",
+  },
+  {
+    id: 7,
+    name: "Rok Batik Lilit Panjang",
+    category: "female",
+    brand: "Batik Nusantara",
+    price: 175000,
+    sizes: ["S", "M", "L", "XL"],
+    image: "/images/female-rok-batik.jpg",
+  },
+  {
+    id: 8,
+    name: "Celana Kulot Wanita High Waist",
+    category: "female",
+    brand: "LemariKita",
+    price: 155000,
+
+    sizes: ["S", "M", "L", "XL"],
+    badge: "sale",
+    image: "/images/female-kulot.jpg",
+  },
+
+  // ─── UNIFORM (4) ────────────────────────────────────────
+  {
+    id: 9,
+    name: "Seragam Putih Merah SD Lengkap",
+    category: "uniform",
+    price: 185000,
+    sizes: ["S", "M", "L", "XL"],
+    badge: "popular",
+    image: "/images/uniform-sd.jpg",
+  },
+  {
+    id: 10,
+    name: "Seragam Putih Biru SMP Set",
+    category: "uniform",
+    price: 210000,
+
+    sizes: ["S", "M", "L", "XL"],
+    badge: "sale",
+    image: "/images/uniform-smp.jpg",
+  },
+  {
+    id: 11,
+    name: "Seragam Abu-abu Putih SMA Set",
+    category: "uniform",
+    price: 240000,
+    sizes: ["S", "M", "L", "XL"],
+    badge: "new",
+    image: "/images/uniform-sma.jpg",
+  },
+  {
+    id: 12,
+    name: "Seragam Batik Sekolah Custom",
+    category: "uniform",
+    brand: "Batik Nusantara",
+    price: 195000,
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    image: "/images/uniform-batik.jpg",
+  },
+];
