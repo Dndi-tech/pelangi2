@@ -7,9 +7,9 @@ export default function Navbar() {
   const Nav_link = NAV_LINKS;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   return (
-    <nav className="sticky w-full lg:py-5  top-0 left-0.5 bg-white  border-b-black">
+    <nav className="sticky w-full lg:py-5  top-0 left-0.5 bg-white  border-b-black z-[100]">
       <div className="mx-auto 3xl:px-0 px-10 max-w-screen-3xl hidden lg:flex flex-row items-center justify-between ">
-        <a href="" className="flex flex-row   ">
+        <div className="flex flex-row   ">
           <a href="" className="flex items-center gap-2">
             <span className="h-fit text-3xl">🌈</span>
             <div className="flex flex-col font-serif     ">
@@ -17,7 +17,7 @@ export default function Navbar() {
               <span>TOKO PAKAIAN</span>
             </div>
           </a>
-        </a>
+        </div>
 
         <div className="flex gap-5 items-center font-serif text-lg">
           {Nav_link.map((link) => (
