@@ -27,21 +27,16 @@ function formatRp(amount: number): string {
   return `Rp ${amount.toLocaleString("id-ID")}`;
 }
 
+const CATEGORY_LABELS: Record<Product["category"], string> = {
+  men: "Pria",
+  women: "Wanita",
+  school: "Seragam",
+  kids: "Anak",
+  custom: "Kustom",
+};
+
 function categoryLabel(category: Product["category"]): string {
-  switch (category) {
-    case "men":
-      return "Pria";
-    case "women":
-      return "Wanita";
-    case "school":
-      return "Seragam";
-    case "kids":
-      return "Anak";
-    case "custom":
-      return "Kustom";
-    default:
-      return category;
-  }
+  return CATEGORY_LABELS[category];
 }
 
 function ProductCard({ product }: { product: Product }) {
