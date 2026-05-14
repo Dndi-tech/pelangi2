@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
+import { BasketProvider } from "@/context/BasketContext";
+import LoginModal from "@/components/ui/loginModal";
+import CartDrawer from "@/components/ui/cartDrawer";
+
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-heading",
@@ -23,7 +28,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id" className={`${jakarta.variable} ${inter.variable}`}>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AuthProvider>
+          <BasketProvider>
+            {children}
+            <LoginModal />
+            <CartDrawer />
+          </BasketProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }

@@ -1,25 +1,20 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  Children,
-} from "react";
+import { createContext, useContext, useState, ReactNode } from "react";
 
-type User = {
+export type User = {
   id: string;
   name: string;
   email?: string;
   phone?: string;
 };
 
-type LoginCredentials = {
+export type LoginCredentials = {
   name: string;
   email?: string;
   phone?: string;
 };
+
 type AuthContextType = {
   user: User | null;
   isModalOpen: boolean;
@@ -39,16 +34,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // NOTE: This is in-memory only. In Phase 3 we'll replace this with
+  // a real API call (POST /api/auth/login) + persistent session.
+  // Validation lives in the form, not here.
   const login = ({ name, email, phone }: LoginCredentials) => {
-    if (!email && !phone) {
-      throw new Error("Email/nomor telepon waji diisi");
-    }
-    const initials = name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
     setUser({
       id: generateId(),
       name,
@@ -75,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
+
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
