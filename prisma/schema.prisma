@@ -1,0 +1,33 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Category{
+  men
+  women
+  kids
+  school
+  custom
+}
+
+model Product{
+  id  String @id @default(cuid())
+  name String
+  category Category
+  brand String?
+  price Int
+  sizes Json
+  images  Json
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
