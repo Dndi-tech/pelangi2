@@ -3,12 +3,16 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, setSessionCookie } from "@/lib/auth";
 
-const RegisterSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8, "Password minimum 8 characters"),
-  name: z.string().min(1),
-  phone: z.string().optional(),
-});
+const RegisterSchema = z
+  .object({
+    email: z.string().email(),
+    password: z.string().min(8, "Password minimum 8 characters"),
+    name: z.string().min(1),
+    phone: z.string().optional(),
+  })
+  .refine((data) => !!data.email || !!data.phone, {
+    message: "Email atau No. Telepon wajib diisi",
+  });
 export async function POST(request: NextRequest) {
   // 1. Parse and validate the body
   const body = await request.json();
@@ -21,7 +25,14 @@ export async function POST(request: NextRequest) {
   const email = parsed.data.email.toLowerCase().trim();
 
   // 2. Check if email already exists → 409 Conflict
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findFirst({
+    where: {
+      OR: [email ? { email } : undefined, phone ? { phone } : undefined].filter(
+        Boolean
+      ) as any,
+    },
+  });
+
   if (existing) {
     return Response.json(
       { error: "Email already registered" },

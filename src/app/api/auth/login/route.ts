@@ -3,8 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { setSessionCookie, verifyPassword } from "@/lib/auth";
 const LoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1), // not min(8) — we accept whatever they type
+  identifier: z.string().min(1),
+  password: z.string().min(1),
 });
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const { password } = parsed.data;
-  const email = parsed.data.email.toLowerCase().trim();
+  const email = parsed.data.identifier.toLowerCase().trim();
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
