@@ -8,8 +8,8 @@ A working reference for the backend learning journey on this project. Update thi
 
 - **Phase 1** — Frontend basket + login modal. **COMPLETE.**
 - **Phase 2** — Database + API. **COMPLETE.**
-- **Phase 3** — Cookie-based auth (custom, not NextAuth) + dual-identifier (email OR phone). **IN PROGRESS** as of 2026-06-15.
-- **Phase 4** — Orders / transactions. Pending.
+- **Phase 3** — Cookie-based auth + dual-identifier (email OR phone). **SHIPPED 2026-06-15.**
+- **Phase 4** — Orders / transactions. **IN PROGRESS** as of 2026-06-16 (schema + services + endpoint + cart wiring done; confirmation page pending).
 - **Phase 5** — AI: product recommendations + chatbot. OTP for phone auth. Pending.
 
 ---
@@ -616,3 +616,260 @@ useEffect(() => {
 The reading list is a quick refresher. But if a concept stops making sense, the fix is usually to **re-read the migration SQL** (`prisma/migrations/*/migration.sql`) — that file is ground truth, regardless of what the ORM is doing on top.
 
 For Phase 3 specifically: the **Auth Debug Playbook** above is the fastest path from symptom to fix. If a new auth bug appears later that isn't in the table, add it — the table only stays useful if you grow it.
+
+---
+
+# Phase 4 — Orders, Transactions, and the Service Layer (2026-06-16)
+
+This section captures the patterns learned while building checkout: the snapshot pattern, the service layer architecture, server-side price authority, and the thin route handler.
+
+## 1. The Service Layer Pattern
+
+### The four layers
+
+Real backend code separates concerns into layers. Each layer talks only downward:
+
+```
+TRANSPORT     route.ts, Server Actions, pages   ← HTTP, params, cookies
+   ↓                "How was I called?"
+SERVICE       lib/services/*.ts                 ← Business rules
+   ↓                "What should happen?"
+DATA ACCESS   lib/prisma.ts + Prisma calls      ← How to read/write
+   ↓                "How do I get/store it?"
+DATABASE      SQLite / Postgres                 ← Where it lives
+```
+
+A route handler calls a service. A service calls Prisma. The route handler never touches Prisma directly. When you want to change databases, only the data layer changes. When you want to add a CLI tool that creates users or orders, you call the service directly — no fake HTTP request needed.
+
+### The thin route handler pattern
+
+Every protected mutation route follows the same 5-step shape:
+
+```
+1. getSession() → 401 if missing
+2. Parse JSON body
+3. zod validate input shape
+4. Call service(session.user.id, validated input)
+5. Map Result → HTTP response
+```
+
+If a route handler does more than this, business logic has leaked. Refactor into the service.
+
+### Where each "register user" step belongs
+
+| Step | Layer | File |
+|---|---|---|
+| Parse JSON body | Transport | `route.ts` |
+| zod validate input shape | Transport | `route.ts` |
+| Normalize phone | Service | `lib/services/auth.ts` |
+| Check uniqueness | Service | `lib/services/auth.ts` |
+| Hash password | Service | `lib/services/auth.ts` |
+| Create user + session in transaction | Service | `lib/services/auth.ts` |
+| Set Set-Cookie header | Transport | `route.ts` |
+| Return 201 with hand-picked DTO | Transport | `route.ts` |
+
+Services don't know about cookies, status codes, or JSON. They take plain arguments and return plain objects.
+
+## 2. The Snapshot Pattern
+
+### The problem
+
+If you store `OrderItem { productId, quantity }` and the product's price changes tomorrow, your order history will silently lie. If a product gets deleted, the order shows blank.
+
+### The solution
+
+Freeze the fields you care about at the moment of order creation. The product's *current* state is for the catalog; the snapshot is for the order.
+
+| Field | Why snapshot |
+|---|---|
+| `priceAtPurchase` | Prices change. Receipts must reflect what was paid. |
+| `nameSnapshot` | Products get renamed. The receipt should match what the customer saw. |
+| `imageSnapshot` | Images get replaced. Order history page needs a stable image. |
+| `size` | Sizes are stored as JSON on Product; pick the one ordered. |
+
+You keep `productId` too — for analytics ("which products sold this month?") and for the user clicking through. But the customer-facing fields come from the snapshot.
+
+This is the same pattern Stripe uses for invoices. Generic name: **never let live data corrupt historical truth.**
+
+### Referential actions that protect the snapshot
+
+In Prisma:
+
+- `OrderItem.product` relation has default `onDelete: Restrict` — you literally CANNOT delete a Product that any order references. Protects history.
+- `OrderItem.order` relation has `onDelete: Cascade` — deleting an Order deletes its items. Correct: items have no meaning without their parent order.
+
+## 3. Server-Side Price Authority
+
+### Never trust client prices
+
+The single most important security property of a checkout endpoint: **the server computes the total.** The client sends only `{productId, size, quantity}`. No price, no name.
+
+If you let the client send price, an attacker pays Rp 1 for a Rp 1,500,000 jacket. This isn't theoretical — it's the most common e-commerce vulnerability.
+
+### The re-fetch pattern
+
+Inside `createOrder(userId, items)`:
+
+1. Take the `productId` list from the input
+2. Fetch ALL products in ONE query (`findMany` with `id: { in: ids }`)
+3. Build a `Map<productId, product>` for fast lookup
+4. For each item:
+   - Look up the product in the map (404 if missing)
+   - Validate size is in `product.sizes` (400 if not)
+   - Call `calculateLinePrice(product, quantity)` — pricing service
+   - Build snapshot from product data
+5. Sum line totals → `Order.totalRupiah`
+6. All inserts inside one Prisma `$transaction`
+
+### Single source of truth for pricing
+
+The pricing service (`lib/services/pricing.ts`) is the ONLY place line prices are computed. It is called from:
+
+- `orders.ts` for new orders
+- Future: invoice generation
+- Future: payment intent calculation
+
+The client's `resolveDisplayPrice` from `data/promotion.ts` is for DISPLAY ONLY. It must never produce a different number than the server's pricing service, but if they ever diverge, the server wins.
+
+## 4. Auth-Guarded Routes
+
+### The pattern (write inline first, extract on the third time)
+
+```ts
+const session = await getSession();
+if (!session) {
+  return Response.json(
+    { error: "Anda harus masuk untuk checkout" },
+    { status: 401 }
+  );
+}
+// session.user.id is now safe to use
+```
+
+When you have 3+ protected routes using this exact block, extract:
+
+```ts
+// lib/auth-guards.ts (future)
+export async function requireSession() {
+  const session = await getSession();
+  if (!session) throw new UnauthorizedError();
+  return session;
+}
+```
+
+**Rule of three**: don't extract the helper until the pattern has repeated three times. Premature abstraction creates wrong abstractions.
+
+### Why 401 in the route handler, not 401 from the service
+
+The service doesn't know about HTTP. It doesn't check auth — it trusts the route handler to only call it with a valid userId. This keeps the service callable from any context (CLI, test harness, scheduled jobs).
+
+## 5. Common Mistakes (Phase 4)
+
+1. **Confusing the close action with the submit action**. CartDrawer has TWO actions: `closeBasket()` (backdrop, X, Escape) and `handleCheckout()` (the submit button only). Mixing them produces hilariously bad UX — clicking the backdrop creates an order. Always map each onClick to "what does the user expect to happen here?"
+2. **Recursion in success path**: calling `handleCheckout()` instead of `closeBasket()` after a successful POST creates an infinite loop. Find-and-replace traps: when you rename a function, audit every call site.
+3. **Clearing the basket before navigation**. If clear runs before `router.push` and navigation fails (rare but possible), the user has no cart AND no order. Order matters: `closeBasket() → router.push() → clear()`.
+4. **N database queries instead of one**: looping `await prisma.product.findUnique` over each item works but is O(N) network roundtrips. Use `findMany({ where: { id: { in: ids } } })` for one query.
+5. **Trusting client price**: if your route handler accepts a `price` field from the client, you have a critical security bug. Server re-fetches.
+6. **Storing money as Float**: never. Money is `Int` (cents for USD; whole rupiah for IDR). Floating-point arithmetic compounds errors.
+7. **Transactions that span validation**: the longer a `$transaction` holds open, the longer the row locks last. Validate BEFORE entering the transaction; persist only inside.
+8. **Skipping snapshot fields**: storing just `productId` "to save space" silently corrupts orders the moment a product changes. Snapshot.
+
+## 6. Pattern Library Additions
+
+### Auth-guarded route handler skeleton
+
+```ts
+export async function POST(request: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let body: unknown;
+  try { body = await request.json(); }
+  catch { return Response.json({ error: "Bad body" }, { status: 400 }); }
+
+  const parsed = SchemaName.safeParse(body);
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const result = await someService(session.user.id, parsed.data);
+  if (!result.ok) {
+    return Response.json({ error: result.error }, { status: 400 });
+  }
+
+  return Response.json({ data: result.data }, { status: 201 });
+}
+```
+
+### Server-side batched product fetch
+
+```ts
+const productIds = items.map(i => i.productId);
+const products = await prisma.product.findMany({
+  where: { id: { in: productIds } },
+});
+const productMap = new Map(products.map(p => [p.id, p]));
+```
+
+One query, O(N) lookup time afterwards.
+
+### Snapshot-aware order item insertion
+
+```ts
+const prepared = items.map(item => {
+  const product = productMap.get(item.productId)!;
+  const { unitPrice, lineTotal } = calculateLinePrice(product, item.quantity);
+  return {
+    productId: product.id,
+    nameSnapshot: product.name,
+    imageSnapshot: (product.images as string[])[0] ?? null,
+    size: item.size,
+    quantity: item.quantity,
+    priceAtPurchase: unitPrice,
+  };
+});
+
+await prisma.$transaction(async (tx) => {
+  const order = await tx.order.create({ data: { userId, totalRupiah, status: "pending" } });
+  await tx.orderItem.createMany({
+    data: prepared.map(p => ({ ...p, orderId: order.id })),
+  });
+});
+```
+
+`createMany` is one SQL statement; looping `create` is N. Use `createMany` whenever you insert multiple rows of the same shape.
+
+### Order-of-operations on async success
+
+```ts
+// Correct:
+closeUI();          // 1. UI dismisses
+router.push(...);   // 2. Navigation triggers
+clearState();       // 3. State mutation
+
+// Wrong:
+clearState();       // Mutation first — if anything fails after, user is in a bad state
+router.push(...);
+```
+
+## 7. Phase 5 Prep — What's Next
+
+- **Order confirmation page** — `/orders/[id]/page.tsx` Server Component. Hand-picks snapshot fields. Auth-guards: `order.userId === session.user.id`, else 404.
+- **Phone OTP verification** — Twilio or local SMS gateway. Removes the SIM-swap risk identified in Phase 3.
+- **Payment gateway** — Midtrans or Xendit for Indonesian payments. Adds `Order.paymentMethod`, `pending → paid` state transition, webhook handler.
+- **AI integration** — Anthropic API for product recommendations ("users who bought X also bought Y" via OrderItem aggregation) and a chatbot for support.
+- **Order history page** — `/orders/page.tsx` Server Component listing the user's past orders.
+- **Admin dashboard** — separate auth (admin role), order management, fulfillment queue.
+
+## 8. Phase 4 Concepts in Your Own Words
+
+- **Why does the server re-fetch product prices instead of trusting the basket?** _(your answer)_
+- **What does the snapshot pattern protect against?** _(your answer)_
+- **Why is a route handler called "thin transport" — what does that mean?** _(your answer)_
+- **Why does CartDrawer have TWO action handlers (close vs checkout), not one?** _(your answer)_
+- **Why does `createMany` matter — what's wrong with looping `create`?** _(your answer)_
+- **What's the "rule of three" and how does it apply to extracting helpers?** _(your answer)_
+- **Why is money stored as Int, not Float?** _(your answer)_
+- **What's the order of operations on a successful checkout — and what bad scenario does that order prevent?** _(your answer)_
