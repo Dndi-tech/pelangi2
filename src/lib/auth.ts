@@ -1,4 +1,9 @@
 // src/lib/auth.ts — SERVER ONLY
+//
+// TODO: after `npm install server-only`, uncomment the next line.
+// It makes the build fail if a Client Component ever imports this file.
+// import "server-only";
+
 import type { User } from "@/generated/prisma/client";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";

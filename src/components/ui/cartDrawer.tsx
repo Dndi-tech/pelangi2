@@ -1,7 +1,9 @@
 "use client";
 
 import { useBasket } from "@/context/BasketContext";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import clsx from "clsx";
 
 function formatRp(amount: number): string {
@@ -19,7 +21,12 @@ export default function CartDrawer() {
     updateQuantity,
     clear,
   } = useBasket();
+  const { user, openModal } = useAuth();
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
+  // Lock body scroll + Escape-to-close while drawer is open.
   useEffect(() => {
     if (!isBasketOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -33,9 +40,65 @@ export default function CartDrawer() {
     };
   }, [isBasketOpen, closeBasket]);
 
+  const handleCheckout = async () => {
+    setCheckoutError(null);
+
+    // If not logged in, prompt login first. The user can checkout after.
+    if (!user) {
+      openModal();
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            productId: i.productId,
+            size: i.size,
+            quantity: i.quantity,
+          })),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        // Session expired between page load and checkout click.
+        openModal();
+        return;
+      }
+
+      if (!response.ok) {
+        // Server validation rejected something. data.error is either a
+        // string (our service errors) or a zod flatten() object.
+        const message =
+          typeof data.error === "string"
+            ? data.error
+            : "Checkout gagal. Periksa kembali keranjang Anda.";
+        setCheckoutError(message);
+        return;
+      }
+
+      // Success — close the drawer, navigate to confirmation page,
+      // then clear the basket. Order matters: don't clear before
+      // navigation triggers, or the user loses their cart on failure.
+      closeBasket();
+      router.push(`/orders/${data.order.id}`);
+      clear();
+    } catch {
+      setCheckoutError("Network error. Coba lagi.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — click to dismiss */}
       <button
         type="button"
         aria-label="Tutup keranjang"
@@ -168,15 +231,18 @@ export default function CartDrawer() {
                 {formatRp(totalPrice)}
               </span>
             </div>
+            {checkoutError && (
+              <p role="alert" className="text-xs text-red-600 text-center">
+                {checkoutError}
+              </p>
+            )}
             <button
               type="button"
-              onClick={() => {
-                // TODO Phase 2: POST /api/orders
-                alert("Checkout akan tersedia setelah backend terhubung.");
-              }}
-              className="py-3 bg-red-600 text-white text-sm font-semibold tracking-wide hover:bg-red-700 transition-colors"
+              onClick={handleCheckout}
+              disabled={submitting}
+              className="py-3 bg-red-600 text-white text-sm font-semibold tracking-wide hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
-              Lanjut ke Pembayaran
+              {submitting ? "Memproses..." : "Lanjut ke Pembayaran"}
             </button>
             <button
               type="button"

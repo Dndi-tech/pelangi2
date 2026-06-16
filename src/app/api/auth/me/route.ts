@@ -22,8 +22,8 @@ export async function GET() {
   // 3. Now (and only now) destructure the fields we want to send.
   //    HAND-PICK. Never spread `session.user` — that would leak passwordHash.
   //    Listing the fields explicitly is the safety mechanism.
-  const { id, email, name } = session.user;
+  const { id, email, phone, name } = session.user;
 
   // 4. Respond with only the safe fields.
-  return Response.json({ user: { id, email, name } }, { status: 200 });
+  return Response.json({ user: { id, email, phone, name } }, { status: 200 });
 }

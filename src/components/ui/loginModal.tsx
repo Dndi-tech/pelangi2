@@ -60,7 +60,7 @@ function LoginModalContent() {
     setSubmitting(true);
     const result =
       mode === "login"
-        ? await login(identifier.trim(), password, name.trim())
+        ? await login(identifier.trim(), password)
         : await register(identifier.trim(), password, name.trim());
     setSubmitting(false);
 

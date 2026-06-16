@@ -18,12 +18,19 @@ enum Category{
   school
   custom
 }
-
+enum OrderStatus {
+  pending      // checkout started, not yet paid
+  paid         // payment confirmed
+  cancelled    // user or system cancelled
+  fulfilled    // shipped and received
+  refunded     // money returned
+}
 model Product{
   id  String @id @default(cuid())
   name String
   category Category
   brand String?
+  orderItems OrderItem[] 
   price Int
   sizes Json
   images  Json
@@ -36,6 +43,7 @@ model Product{
 model User {
   id String @id @default(cuid())
   email String? @unique
+  orders   Order[]
   passwordHash String
   name String
   phone String? @unique
@@ -53,4 +61,45 @@ model Session{
   createdAt DateTime @default(now())
   @@index([userId])
   @@index([expiresAt])
+}
+
+
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+
+  status      OrderStatus @default(pending)
+  totalRupiah Int          
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  paidAt      DateTime?   
+
+  items       OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+
+ 
+  nameSnapshot    String
+  imageSnapshot   String?
+  size            String
+  quantity        Int
+  priceAtPurchase Int      
+
+  createdAt       DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
 }
