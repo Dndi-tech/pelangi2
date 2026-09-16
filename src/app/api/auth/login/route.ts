@@ -8,7 +8,7 @@ import { classifyIdentifier, normalizePhone } from "@/lib/identifier";
 // normalizes if needed, then looks up the user in the correct column.
 const LoginSchema = z.object({
   identifier: z.string().min(1),
-  password: z.string().min(1), // not min(8) — we accept whatever they type
+  password: z.string().min(1),
 });
 
 export async function POST(request: NextRequest) {
