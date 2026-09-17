@@ -11,13 +11,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Category{
+enum Category {
   men
   women
   kids
   school
   custom
 }
+
 enum OrderStatus {
   pending      // checkout started, not yet paid
   paid         // payment confirmed
@@ -25,44 +26,45 @@ enum OrderStatus {
   fulfilled    // shipped and received
   refunded     // money returned
 }
-model Product{
-  id  String @id @default(cuid())
-  name String
-  category Category
-  brand String?
-  orderItems OrderItem[] 
-  price Int
-  sizes Json
-  images  Json
-  description String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
 
+model Product {
+  id          String       @id @default(cuid())
+  name        String
+  category    Category
+  brand       String?
+  orderItems  OrderItem[]
+  basketItems BasketItem[]
+  price       Int
+  sizes       Json
+  images      Json
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
 
 model User {
-  id String @id @default(cuid())
-  email String? @unique
-  orders   Order[]
+  id           String    @id @default(cuid())
+  email        String?   @unique
+  orders       Order[]
+  basket       Basket?
   passwordHash String
-  name String
-  phone String? @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  sessions Session[]
+  name         String
+  phone        String?   @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
 }
 
-
-model Session{
-  id String @id @default(cuid())
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
   @@index([userId])
   @@index([expiresAt])
 }
-
 
 model Order {
   id          String      @id @default(cuid())
@@ -70,11 +72,11 @@ model Order {
   user        User        @relation(fields: [userId], references: [id])
 
   status      OrderStatus @default(pending)
-  totalRupiah Int          
+  totalRupiah Int
 
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  paidAt      DateTime?   
+  paidAt      DateTime?
 
   items       OrderItem[]
 
@@ -91,15 +93,42 @@ model OrderItem {
   productId       String
   product         Product  @relation(fields: [productId], references: [id])
 
- 
   nameSnapshot    String
   imageSnapshot   String?
   size            String
   quantity        Int
-  priceAtPurchase Int      
+  priceAtPurchase Int
 
   createdAt       DateTime @default(now())
 
   @@index([orderId])
+  @@index([productId])
+}
+
+model Basket {
+  id        String       @id @default(cuid())
+  userId    String       @unique
+  user      User         @relation(fields: [userId], references: [id])
+
+  items     BasketItem[]
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model BasketItem {
+  id        String   @id @default(cuid())
+  basketId  String
+  basket    Basket   @relation(fields: [basketId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  size      String
+  quantity  Int
+
+  createdAt DateTime @default(now())
+
+  @@index([basketId])
   @@index([productId])
 }

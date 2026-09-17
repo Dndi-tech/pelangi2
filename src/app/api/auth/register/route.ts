@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
   // 5. Create user + session in one transaction.
   //    If session insert fails, user creation rolls back — no orphaned users.
-  const { user, session } = await prisma.$transaction(async (tx) => {
+  const { user, session, basket } = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: { email, phone, passwordHash, name },
     });
@@ -75,7 +75,12 @@ export async function POST(request: NextRequest) {
         expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
       },
     });
-    return { user, session };
+    const basket = await tx.basket.create({
+      data: {
+        userId: user.id,
+      },
+    });
+    return { user, session, basket };
   });
 
   // 6. Set the session cookie (server controls this; httpOnly)

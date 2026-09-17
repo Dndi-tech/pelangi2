@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
   //    - price calculation
   //    - snapshot building
   //    - the database transaction
-  const result = await createOrder(session.user.id, parsed.data.items);
+  const result = await createOrder(session.user.id);
 
   if (!result.ok) {
     // Service errors are all "user-caused" for now (bad product, bad size,
