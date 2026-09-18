@@ -7,6 +7,7 @@ import {
   removeItem,
   updateQuantity,
 } from "@/lib/services/basket";
+
 export async function GET() {
   const session = await getSession();
   if (!session) {
@@ -16,6 +17,7 @@ export async function GET() {
   const basket = await getBasket(session.user.id);
   return Response.json({ basket }, { status: 200 });
 }
+
 const AddItemSchema = z.object({
   productId: z.string().min(1),
   size: z.string().min(1),
@@ -53,7 +55,6 @@ export async function POST(request: NextRequest) {
 
   return Response.json({ ok: true }, { status: 201 });
 }
-
 const UpdateQtySchema = z.object({
   quantity: z.number().int(),
 });
@@ -88,7 +89,7 @@ export async function PATCH(
   );
 
   if (!result.ok) {
-    return Response.json({ error: result.error }, { status: 400 });
+    return Response.json({ error: result.error }, { status: 404 });
   }
 
   return Response.json({ ok: true }, { status: 200 });
@@ -103,21 +104,13 @@ export async function DELETE(
     return Response.json({ error: "login first" }, { status: 401 });
   }
 
-  let body: unknown;
   const { id } = await params;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Body tidak valid" }, { status: 400 });
-  }
-  const parsed = UpdateQtySchema.safeParse(body);
-  if (!parsed.success) {
-    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
-  }
 
   const result = await removeItem(session.user.id, id);
+
   if (!result.ok) {
-    return Response.json({ error: result.error }, { status: 400 });
+    return Response.json({ error: result.error }, { status: 404 });
   }
+
   return Response.json({ ok: true }, { status: 200 });
 }
